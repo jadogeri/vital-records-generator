@@ -3,6 +3,22 @@
 A local-first Electron + Vite records workspace for the Orleans Parish Assessor’s Office.
 The implementation follows [`VERSION2.txt`](VERSION2.txt).
 
+## Documentation
+
+The repository root contains this guide and the requirements. The application
+and its `package.json` live in the nested `vital-records-generator/` directory.
+Use this canonical `README.md` spelling; do not create a second case-only
+`READMe.md` file on Windows or other case-insensitive filesystems.
+
+- [Application quick start](vital-records-generator/README.md)
+- [User guide](docs/USER_GUIDE.md): importing, reviewing, exporting, and file history.
+- [Input formats](docs/DATA_FORMATS.md): field order, dates, layouts, and validation.
+- [Architecture](docs/ARCHITECTURE.md): Electron processes, IPC, state, and exports.
+- [Testing and desktop checklist](docs/TESTING.md)
+- [Contributing](CONTRIBUTING.md) and [security/privacy guidance](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+- [Cleanup review](TO_DELETE.txt): unused-file candidates; nothing is deleted.
+
 ## Run and verify
 
 ```sh
@@ -19,6 +35,12 @@ npm run test:ui
 npm run build
 npm run build:win
 ```
+
+Run these commands from the application directory, not the repository root.
+`npm run build:win` builds Windows packages using electron-builder; use a Windows
+machine for the target-OS smoke test. Native toolchain or signing configuration
+may be required for your distribution environment. Build artifacts go to `out/`;
+installer output goes to `dist/`. Neither belongs in source control.
 
 Node 22+ is recommended. Browser tests use Playwright's Chromium; `CHROMIUM_PATH`
 can point to a compatible existing Chromium executable. `vite.preview.config.ts`

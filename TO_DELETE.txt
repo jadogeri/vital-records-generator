@@ -1,0 +1,125 @@
+UNUSED-FILE REVIEW LIST — VITAL RECORDS GENERATOR
+==============================================
+
+Scope: tracked files in jadogeri/vital-records-generator, audited against
+the follow-up workspace branch (application source baseline 9b55da3).
+Result: 23 tracked files are outside the active app/test/config dependency
+graph. NO FILES HAVE BEEN DELETED. This is a review list, not a delete script.
+All paths below are relative to the repository root.
+
+HOW THIS WAS CHECKED
+-------------------
+Inspected TypeScript AST imports/re-exports, import() and require() calls,
+including relative/renderer-alias resolution, type imports, imported CSS and
+images. Traversed main, preload, renderer, test, and build-config entries.
+No unresolved local module imports were found.
+
+Manually checked the active renderer HTML, CSS asset references, package scripts,
+Electron load paths, Vite config, and electron-builder packaging configuration.
+The active HTML is vital-records-generator/src/renderer/index.html.
+The separate assets/index.html is an old %PUBLIC_URL% web template, not an entry.
+The current package configuration does not reference the legacy assets folder.
+
+"Unused" means unreachable by the current app/tests/build, not necessarily
+"no reference anywhere." Some candidates reference one another inside abandoned
+component chains or the abandoned static HTML/manifest. Those dependencies are
+called out below. This does not prove that external tools, unpublished scripts,
+future features, or downstream consumers never use these files. Re-audit before
+deletion, and retain branding originals separately if they have business value.
+
+A. LEGACY COMPONENT/UTILITY ROOTS WITH NO MODULE IMPORTERS (8)
+------------------------------------------------------------
+vital-records-generator/src/renderer/src/layouts/NavBar.tsx
+vital-records-generator/src/renderer/src/layouts/Footer.tsx
+vital-records-generator/src/renderer/src/components/Spacer.tsx
+vital-records-generator/src/renderer/src/components/button/Button.tsx
+vital-records-generator/src/renderer/src/components/table/Table.tsx
+vital-records-generator/src/renderer/src/data/headers.ts
+vital-records-generator/src/renderer/src/utils/generateCSVData.ts
+vital-records-generator/src/renderer/src/utils/getTimeStamp.ts
+
+Reasons:
+- NavBar and Footer were replaced by Workspace's header/footer.
+- Spacer and the old Button have no consumers in the active UI.
+- The old Table was replaced by Workspace's editable, paginated preview.
+- headers/generateCSVData/getTimeStamp are superseded by shared records and
+  workspace exports; no module importers were found.
+
+B. DEPENDENCIES REFERENCED ONLY BY THE UNUSED CHAINS ABOVE (8)
+------------------------------------------------------------
+vital-records-generator/src/renderer/src/components/Company.tsx
+vital-records-generator/src/renderer/src/components/Logo.tsx
+vital-records-generator/src/renderer/src/assets/logo.png
+vital-records-generator/src/renderer/src/components/button/Button.css
+vital-records-generator/src/renderer/src/components/table/Table.css
+vital-records-generator/src/renderer/src/models/VitalRecord.ts
+vital-records-generator/src/renderer/src/utils/getDate.ts
+vital-records-generator/src/renderer/src/utils/getMonth.ts
+
+Dependency evidence:
+- NavBar -> Company and Logo -> assets/logo.png.
+- Button -> Button.css.
+- Table -> Table.css and models/VitalRecord -> getDate -> getMonth.
+These chains are not reached from the current renderer, native entries, tests,
+or build configs. Do not delete a helper while intentionally keeping a legacy
+consumer for reuse; remove/archive an entire abandoned chain consistently.
+
+C. UNREFERENCED RENDERER FAVICON (1)
+-----------------------------------
+vital-records-generator/src/renderer/src/assets/favicon.ico
+
+No active HTML, module, stylesheet, or current package/icon config references
+this file. Retain it if it is intended for a future app/installer icon.
+
+D. ABANDONED STATIC WEB TEMPLATE/ASSET BUNDLE (6)
+------------------------------------------------
+vital-records-generator/assets/index.html
+vital-records-generator/assets/favicon.ico
+vital-records-generator/assets/logo192.png
+vital-records-generator/assets/logo512.png
+vital-records-generator/assets/manifest.json
+vital-records-generator/assets/robots.txt
+
+The old HTML references favicon.ico, logo192.png, and manifest.json via
+%PUBLIC_URL%; the old manifest references the favicon and both logo sizes.
+These are references WITHIN the abandoned bundle, not current app usage.
+No active entry/config points into this bundle, and it is not the renderer's
+public directory. robots.txt is not used by the desktop application.
+Keep branding copies if needed independently of this application.
+
+IMPORTANT: KEEP THESE
+--------------------
+- src/renderer/src/components/CopyRightNotice.tsx: directly used by Workspace.
+  Only the old layouts/Footer.tsx wrapper is a candidate.
+- src/renderer/src/views/Team.tsx and components/TeamCard.tsx: active Team tab.
+- App.css, index.css, workspace/navigation.css: active stylesheets.
+- src/main, src/preload, src/shared, workspace files: active implementation.
+- src/renderer/index.html: real renderer HTML entry.
+- *.d.ts declarations: compile-time globals/types, not runtime imports.
+- package.json and package-lock.json: install/build metadata and dependency lock.
+- Electron/Vite/Playwright/TypeScript configs, .gitignore, and tests: tool inputs.
+- README/docs, VERSION2.txt, and this report: project documentation/requirements,
+  not runtime code; lack of an application import is not a reason to delete them.
+- Source TXT/CSV files and user exports: user data, excluded from this audit.
+
+REGENERABLE LOCAL OUTPUT — NOT UNUSED SOURCE CANDIDATES
+------------------------------------------------------
+The local checkout also contains ignored build/test/compiler output such as
+vital-records-generator/out/, vital-records-generator/test-results/, and
+vital-records-generator/tsconfig.tsbuildinfo. These are not tracked source files.
+out/ IS USED to launch/preview the built app. It can only be removed when not
+needed and rebuilt with npm run build before preview or packaging.
+Test reports/compiler metadata can be regenerated. Do not include node_modules,
+.git, installed browsers, or developer configuration in a blind cleanup.
+
+AFTER APPROVING ANY DELETION
+---------------------------
+Recheck imports, HTML/CSS paths, packaging/icon settings, and downstream needs.
+Then run, from the nested application directory:
+  npm run typecheck
+  npm test
+  npm run test:ui
+  npm run build
+Run checks sequentially on memory-limited machines. Smoke-test native Electron
+and target-OS packaging before distributing. This audit does not validate
+installer behavior or authorize deletion of branding/user data.
