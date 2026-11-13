@@ -40,7 +40,7 @@
   },
   "build": {
     "appId": "com.josephadogeri.electronapp",
-    "productName": "Electron App",
+    "productName": "Vital Records Generator",
     "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "dist",
