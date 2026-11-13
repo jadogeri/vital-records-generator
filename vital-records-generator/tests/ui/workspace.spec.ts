@@ -43,3 +43,123 @@ test('fits the original minimum window size with contained horizontal table scro
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(page.getByRole('button',{name:'Import files',exact:true})).toBeVisible()
 })
+test('scrolls to the last column and row, paginates, and keeps the footer at 600×500', async ({page}) => {
+  await page.setViewportSize({width:600,height:500})
+  const rows = Array.from({length:61},(_,i) =>
+    `${String(i+1).padStart(9,'0')},Person ${String(i+1).padStart(3,'0')},001,10 MAIN ST,NEW ORLEANS,01021940,03042020,F,080`)
+  await page.goto('/')
+  await page.locator('input[type=file]').setInputFiles({name:'many.csv',mimeType:'text/csv',buffer:Buffer.from('ssn,owner,rescode,address,city,dob,dod,sex,age\n'+rows.join('\n'))})
+  const table = page.getByRole('table',{name:'Vital records preview'})
+  await expect(table.locator('tbody tr')).toHaveCount(25)
+  const region = page.getByRole('region',{name:'Scrollable record data'})
+  await region.scrollIntoViewIfNeeded()
+  await region.evaluate(element => { element.scrollLeft = element.scrollWidth; element.scrollTop = element.scrollHeight })
+  const dimensions = await region.evaluate(element => ({
+    x:element.scrollLeft,y:element.scrollTop,width:element.clientWidth,height:element.clientHeight,
+    scrollWidth:element.scrollWidth,scrollHeight:element.scrollHeight
+  }))
+  expect(dimensions.x).toBeGreaterThan(0)
+  expect(dimensions.y).toBeGreaterThan(0)
+  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.width)
+  expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.height)
+  await expect(page.getByRole('button',{name:'Delete row 25',exact:true})).toBeInViewport()
+  const pagination = page.getByRole('navigation',{name:'Record pagination'})
+  await pagination.scrollIntoViewIfNeeded()
+  await expect(pagination).toBeInViewport()
+  await expect(pagination).toContainText('1–25 of 61 records')
+  await page.getByRole('button',{name:'Next page',exact:true}).click()
+  await expect(pagination).toContainText('26–50 of 61 records')
+  expect(await region.evaluate(element => element.scrollTop)).toBe(0)
+  await page.getByRole('button',{name:'Last page',exact:true}).click()
+  await expect(pagination).toContainText('51–61 of 61 records')
+  await expect(table.locator('tbody tr')).toHaveCount(11)
+  await expect(page.getByRole('button',{name:'Next page',exact:true})).toBeDisabled()
+  await page.getByRole('button',{name:'Previous page',exact:true}).click()
+  await expect(pagination).toContainText('26–50 of 61 records')
+  await page.getByRole('button',{name:'First page',exact:true}).click()
+  await page.getByLabel('Rows per page').selectOption('50')
+  await expect(table.locator('tbody tr')).toHaveCount(50)
+  await page.getByRole('button',{name:'Last page',exact:true}).click()
+  await page.getByLabel('Rows per page').selectOption('100')
+  await expect(table.locator('tbody tr')).toHaveCount(61)
+  await expect(pagination).toContainText('Page 1 of 1')
+  await page.getByLabel('Rows per page').selectOption('25')
+  await page.getByRole('button',{name:'Last page',exact:true}).click()
+  await page.getByRole('textbox',{name:'Search records'}).fill('Person 001')
+  await expect(pagination).toContainText('1–1 of 1 records')
+  await expect(pagination).toContainText('Page 1 of 1')
+  await expect(page.getByRole('contentinfo')).toBeInViewport()
+  await expect(page.getByRole('contentinfo')).toContainText(`© ${new Date().getFullYear()} Orleans Parish Assessor's Office. All rights reserved.`)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('removes individual history entries and clears all only after confirmation', async ({page}) => {
+  // Exercise the real renderer/preload contract with a persistent desktop-API
+  // double. Actual disk persistence and preservation of files are unit-tested.
+  await page.addInitScript(({sample}) => {
+    const initial = [
+      {path:'/source/first.txt',name:'first.txt',importedAt:'2026-01-01'},
+      {path:'/source/second.csv',name:'second.csv',importedAt:'2026-01-02'}
+    ]
+    const read = () => JSON.parse(localStorage.getItem('test-recent') ?? JSON.stringify(initial))
+    const write = (files: typeof initial) => { localStorage.setItem('test-recent',JSON.stringify(files)); return files }
+    Object.defineProperty(window,'api',{value:{
+      recentFiles:async () => read(), activity:async () => [{at:'2026-01-01',action:'File imported',detail:'Existing activity'}],
+      onCommand:() => () => {}, logActivity:async () => {},
+      reloadFile:async (path:string) => ({name:path.split('/').pop(),path,text:sample}),
+      removeRecentFile:async (path:string) => {
+        if(localStorage.getItem('test-fail')) throw new Error('Write failed')
+        return write(read().filter((file:typeof initial[number]) => file.path !== path))
+      },
+      clearRecentFiles:async () => write([])
+    }})
+  },{sample})
+  await page.goto('/')
+  await page.getByRole('button',{name:'Recent files & activity'}).click()
+  await expect(page.getByRole('button',{name:'Reload',exact:true})).toHaveCount(2)
+  const first = page.getByRole('button',{name:'Remove first.txt from history'})
+  page.once('dialog',dialog => dialog.dismiss())
+  await first.click()
+  await expect(first).toBeVisible()
+  await page.evaluate(() => localStorage.setItem('test-fail','yes'))
+  page.once('dialog',dialog => dialog.accept())
+  await first.click()
+  await expect(page.getByRole('alert')).toContainText('File history could not be updated')
+  await expect(first).toBeVisible()
+  await page.evaluate(() => localStorage.removeItem('test-fail'))
+  page.once('dialog',dialog => dialog.accept())
+  await first.click()
+  await expect(first).toHaveCount(0)
+  await page.reload()
+  await page.getByRole('button',{name:'Recent files & activity'}).click()
+  await expect(page.getByRole('button',{name:'Reload',exact:true})).toHaveCount(1)
+  await page.getByRole('button',{name:'Reload',exact:true}).click()
+  await expect(page.getByRole('cell',{name:'Jane Doe',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Recent files & activity'}).click()
+  page.once('dialog',dialog => dialog.dismiss())
+  await page.getByRole('button',{name:'Clear all file history',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Reload',exact:true})).toHaveCount(1)
+  page.once('dialog',dialog => dialog.accept())
+  await page.getByRole('button',{name:'Clear all file history',exact:true}).click()
+  await expect(page.getByText('No recent files yet.',{exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Clear all file history',exact:true})).toBeDisabled()
+  await expect(page.getByText('Existing activity',{exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Records',exact:true}).click()
+  await expect(page.getByRole('cell',{name:'Jane Doe',exact:true})).toBeVisible()
+  await page.reload()
+  await page.getByRole('button',{name:'Recent files & activity'}).click()
+  await expect(page.getByText('No recent files yet.',{exact:true})).toBeVisible()
+})
+
+test('flags only matching owner+DOB+DOD and merges that group', async ({page}) => {
+  const data = sample + '\n987654321,JANE DOE,001,OTHER ST,NEW ORLEANS,01021940,03042020,F,080'
+    + '\n123456789,JANE DOE,001,10 MAIN ST,NEW ORLEANS,01021940,03042021,F,081'
+  await page.goto('/')
+  await page.locator('input[type=file]').setInputFiles({name:'duplicates.csv',mimeType:'text/csv',buffer:Buffer.from(data)})
+  await expect(page.getByText('1 duplicate groups found by Owner + DOB + DOD.',{exact:false})).toBeVisible()
+  await expect(page.getByRole('table').locator('td.duplicate')).toHaveCount(6)
+  page.once('dialog',dialog => dialog.accept())
+  await page.getByRole('button',{name:'Merge duplicates',exact:true}).click()
+  await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(3)
+  await expect(page.getByRole('button',{name:'Merge duplicates',exact:true})).toHaveCount(0)
+})

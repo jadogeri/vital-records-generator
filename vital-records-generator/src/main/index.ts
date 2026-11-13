@@ -3,7 +3,7 @@ import { join, basename, extname } from 'node:path'
 import { readFile, writeFile, stat } from 'node:fs/promises'
 import { is } from '@electron-toolkit/utils'
 import { channels } from '../shared/channels'
-import { readStore, updateStore } from './storage'
+import { readStore, updateStore, removeRecentFile, clearRecentFiles } from './storage'
 import type { ExportFormat, InputFile } from '../shared/records'
 
 const formats: ExportFormat[] = ['xlsx', 'csv', 'json', 'pdf']
@@ -40,6 +40,8 @@ function registerIPC(): void {
     return files
   })
   ipcMain.handle(channels.recent, async () => (await readStore(directory())).recent)
+  ipcMain.handle(channels.removeRecent, async (_event, path: unknown) => removeRecentFile(directory(), path))
+  ipcMain.handle(channels.clearRecent, async () => clearRecentFiles(directory()))
   ipcMain.handle(channels.reload, async (_event, path: unknown) => {
     const store = await readStore(directory())
     if (typeof path !== 'string' || !store.recent.some(r => r.path === path)) throw new Error('File is not in recent history.')
