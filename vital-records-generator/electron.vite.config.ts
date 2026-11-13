@@ -10,6 +10,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    build: { minify: false, reportCompressedSize: false },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src')

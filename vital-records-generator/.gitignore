@@ -11,6 +11,10 @@
 # production
 /build
 /dist
+/out
+*.tsbuildinfo
+/test-results
+/playwright-report
 
 # misc
 .DS_Store

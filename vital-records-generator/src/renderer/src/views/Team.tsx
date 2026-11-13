@@ -3,7 +3,7 @@ import TeamCard from '../components/TeamCard'
 
 const Team = () => {
   return (
-    <div className="w3-light-grey" style={{ padding: "60px 20px", height :"100vh"}} >
+    <div className="panel" style={{ padding: 20 }} >
 
           {/* <!-- Contact --> */}
   <div className="w3-container" id="team">

@@ -1,5 +1,20 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { channels } from '../shared/channels'
+import type { DesktopAPI } from '../shared/records'
 
-contextBridge.exposeInMainWorld('api', {
-  getAppVersion: (): Promise<string> => ipcRenderer.invoke('get-app-version')
-})
+const api: DesktopAPI = {
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openFiles: () => ipcRenderer.invoke(channels.open),
+  openDroppedFiles: files => ipcRenderer.invoke(channels.dropped, files.map(file => webUtils.getPathForFile(file))),
+  recentFiles: () => ipcRenderer.invoke(channels.recent),
+  reloadFile: path => ipcRenderer.invoke(channels.reload, path),
+  saveFile: (name, format, bytes) => ipcRenderer.invoke(channels.save, name, format, bytes),
+  activity: () => ipcRenderer.invoke(channels.activity),
+  logActivity: (action, detail) => ipcRenderer.invoke(channels.log, action, detail),
+  onCommand: callback => {
+    const handler = (_event: Electron.IpcRendererEvent, command: string) => callback(command)
+    ipcRenderer.on(channels.command, handler)
+    return () => { ipcRenderer.removeListener(channels.command, handler) }
+  }
+}
+contextBridge.exposeInMainWorld('api', api)
