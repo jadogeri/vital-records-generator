@@ -9,7 +9,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "build:win": "npm run build && electron-builder --win",
+    "build:portable": "npm run build && electron-builder --win dir",
+    "build:installer": "npm run build && electron-builder --win nsis",
+    "build:win": "npm run build && electron-builder --win nsis dir",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.renderer.json",
     "test:ui": "playwright test"
@@ -17,38 +19,42 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
-    "@playwright/test": "^1.65.0",
     "exceljs": "^4.4.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tsx": "^4.23.15"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.7.5",
-    "electron-builder": "^26.18.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^3.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.2",
     "vite": "^6.0.0"
   },
   "build": {
     "appId": "com.josephadogeri.electronapp",
     "productName": "Electron App",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "resources"
     },
     "files": [
       "out/**/*",
+      "resources/**/*",
       "package.json"
     ],
     "win": {
+      "icon": "resources/icon.ico",
+      "signAndEditExecutable": false,
       "target": [
-        "nsis",
         "dir"
       ]
     }
