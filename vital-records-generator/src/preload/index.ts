@@ -8,6 +8,8 @@ const api: DesktopAPI = {
   openDroppedFiles: files => ipcRenderer.invoke(channels.dropped, files.map(file => webUtils.getPathForFile(file))),
   recentFiles: () => ipcRenderer.invoke(channels.recent),
   reloadFile: path => ipcRenderer.invoke(channels.reload, path),
+  removeRecentFile: path => ipcRenderer.invoke(channels.removeRecent, path),
+  clearRecentFiles: () => ipcRenderer.invoke(channels.clearRecent),
   saveFile: (name, format, bytes) => ipcRenderer.invoke(channels.save, name, format, bytes),
   activity: () => ipcRenderer.invoke(channels.activity),
   logActivity: (action, detail) => ipcRenderer.invoke(channels.log, action, detail),

@@ -1,0 +1,42 @@
+/* Keep content at its natural height: shrinking a clipped panel hides its table
+   scrollbars and pagination. The workspace, not the window, absorbs overflow. */
+.content > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.table-scroll {
+  max-height: min(360px, 45dvh);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--muted) var(--bg);
+  overscroll-behavior: contain;
+}
+
+.table-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+.table-scroll::-webkit-scrollbar-track { background: var(--bg); }
+.table-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 3px solid var(--bg);
+  border-radius: 10px;
+}
+.table-scroll::-webkit-scrollbar-corner { background: var(--bg); }
+.table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.table-scroll table { min-width: 1120px; }
+.table-scroll td { max-width: none; overflow: visible; text-overflow: clip; }
+.table-hint { padding: 6px 14px; font-size: 10px; color: var(--muted); }
+.pagination { flex-wrap: wrap; border-top: 1px solid var(--border); }
+.pagination .pages { flex-wrap: wrap; gap: 6px; }
+.pagination button { min-width: 28px; min-height: 28px; }
+
+.statusbar { display: flex; flex-direction: column; gap: 4px; }
+.footer-status { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.copyright { margin: 0; font-size: 10px; text-align: center; overflow-wrap: anywhere; }
+.history-file { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.history-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+@media (max-width: 760px) {
+  .history-row { flex-wrap: wrap; gap: 8px; }
+  .panel-head { flex-wrap: wrap; }
+}

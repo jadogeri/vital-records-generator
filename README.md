@@ -28,7 +28,7 @@ serves the renderer for tests only. Electron uses the existing `electron.vite.co
 
 | Requirements | Implementation |
 | --- | --- |
-| 1–5 · validation | Transitive duplicate groups by valid SSN or normalized owner+DOB; explicit merge confirmation; invalid-cell highlighting; whitespace, title case, dates, SSN normalization; privacy masking in preview and every report; downloadable issues with physical source line numbers. |
+| 1–5 · validation | Duplicate groups require normalized owner+DOB+DOD together, with valid birth/death dates; SSN alone does not match; explicit merge confirmation; invalid-cell highlighting; whitespace, title case, dates, SSN normalization; privacy masking in preview and every report; downloadable issues with physical source line numbers. |
 | 6–10 · table | Global search; combined CITY, RESCODE, SEX, age and death-month filters; double-click/Enter editing; delete and add rows; sortable columns; 25/50/100-row pagination. |
 | 11–14 · imports | Multiple dropped/opened TXT/CSV files; source tracking; auto or explicit comma/tab/pipe/legacy fixed-width layouts; saved sequential custom-width profiles; BOM, CRLF/LF/CR support; last 10 native files with reload. |
 | 15–19 · exports | Paginated PDF with header/timestamp/count; selectable columns; all/filtered scope; styled Excel with frozen header, auto-width, actual date cells, zebra stripes and filters; native save dialog for every format. |
@@ -54,6 +54,14 @@ serves the renderer for tests only. Electron uses the existing `electron.vite.co
   files. Reload reads the current source file and appends it; duplicates are flagged.
 - Duplicate merge keeps the first nonempty value per field, retains first values
   on conflicts, combines source filenames, and requires confirmation. It has no undo.
+- Duplicate matching requires all three fields: owner, DOB, and DOD. Owner matching
+  ignores case and repeated spaces; supported dates are normalized before comparison.
+  Missing/invalid dates and death before birth do not produce matches. SSN alone
+  (or owner+DOB without a matching DOD) is no longer considered a duplicate.
+- Recent files has a Remove button beside Reload and a confirmed Clear all file
+  history action for all remembered TXT/CSV entries. These forget history only:
+  source files, loaded records, and activity events remain unchanged. Re-importing
+  a removed file adds it to history again.
 - City/RESCODE summaries show the top four of each to keep the compact UI usable;
   all cities and codes remain available in filters.
 
@@ -78,8 +86,12 @@ responsibility. Imports are limited to 25 MB per file, and export IPC to 100 MB.
 The existing `BrowserWindow` sizing rules are unchanged: default width
 `Math.min(1000, screenWidth)`, height `Math.min(800, screenHeight)`, minimum
 600×500, existing screen-based maximums, centered and resizable. The preview
-table scrolls horizontally inside its panel; the workspace scrolls vertically
-inside the original window rather than increasing its dimensions.
+table scrolls horizontally and vertically inside a bounded, keyboard-focusable
+region, with sticky column headers and visible scrollbars. Its panel cannot shrink
+and clip the controls. First/previous/next/last pagination supports 25/50/100 rows
+per page and resets appropriately when filtering or changing page size. The
+workspace scrolls vertically inside the original window rather than increasing
+its dimensions. A persistent footer includes the existing office copyright notice.
 
 ## Verification boundary
 

@@ -67,8 +67,8 @@ test('validation flags missing SSNs, malformed dates and death before birth', ()
   assert.ok(validateRow(r).ssn); assert.ok(validateRow(r).dod)
   assert.ok(validateRow({...r,dob:'bad'}).dob)
 })
-test('duplicate detection joins transitive SSN and owner+DOB matches', () => {
-  const a = row(), b = {...row(),ssn:'987-65-4321'}, c = {...row(),owner:'Someone Else'}
+test('duplicate detection requires owner, DOB, and DOD together regardless of SSN', () => {
+  const a = row(), b = {...row(),ssn:'987-65-4321'}, c = {...row(),ssn:''}
   assert.equal(duplicateGroups([a,b,c]).length,1)
   assert.equal(duplicateGroups([a,b,c])[0].length,3)
   assert.equal(mergeDuplicates([a,b,c]).length,1)
@@ -77,8 +77,24 @@ test('blank and malformed identifiers do not create false duplicate groups', () 
   const a = {...row(),ssn:'',owner:'',dob:''}, b = {...a,id:'other'}
   assert.equal(duplicateGroups([a,b]).length,0)
 })
+test('same SSN or owner+DOB alone does not flag unrelated records', () => {
+  const a = row()
+  for (const change of [{owner:'Someone Else'}, {dob:'1941-01-02'}, {dod:'2021-03-04'}]) {
+    assert.equal(duplicateGroups([a,{...row(),...change}]).length,0)
+  }
+})
+test('duplicate identity normalizes owner spacing/case and supported date forms', () => {
+  const a = row(), b = {...row(),owner:'  JANE   DOE ',dob:'1/2/1940',dod:'4-Mar-2020',ssn:'987-65-4321'}
+  assert.equal(duplicateGroups([a,b]).length,1)
+})
+test('missing, invalid, and reversed dates never create duplicate identities', () => {
+  for (const change of [{owner:''},{dob:''},{dod:''},{dod:'2020-02-31'},{dob:'bad'},{dod:'1900-01-01'}]) {
+    const a = {...row(),...change}, b = {...a,id:'other'}
+    assert.equal(duplicateGroups([a,b]).length,0)
+  }
+})
 test('merging fills empty fields, retains first conflicting value, and tracks sources', () => {
-  const a = {...row(),city:'',source:'a.txt'}, b = {...row(),owner:'Other',source:'b.txt'}
+  const a = {...row(),city:'',source:'a.txt'}, b = {...row(),ssn:'987-65-4321',source:'b.txt'}
   const merged = mergeDuplicates([a,b])
   assert.equal(merged[0].city,'New Orleans'); assert.equal(merged[0].owner,'Jane Doe')
   assert.equal(merged[0].source,'a.txt; b.txt')

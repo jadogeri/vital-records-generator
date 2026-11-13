@@ -4,6 +4,7 @@ import { columns, labels, defaultLayout, parseFile, validateRow, duplicateGroups
 import type { Activity, Column, ExportFormat, Filters, InputFile, Issue, Layout, RecentFile, VitalRow } from '../../../shared/records'
 import { allColumns, buildExport, saveBytes } from './exports'
 import Team from '../views/Team'
+import CopyrightNotice from '../components/CopyRightNotice'
 
 function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
@@ -44,7 +45,7 @@ function EditableCell({ row, column, mask, onEdit, duplicate }: {
   const locked = mask && column === 'ssn'
   const edit = () => { if (!locked) { cancelled.current = false; setDraft(row[column]); setEditing(true) } }
   const commit = () => { if (!cancelled.current) onEdit(row.id, column, draft); setEditing(false) }
-  return <td className={`${column === 'owner' ? 'owner' : ''} ${error ? 'invalid' : duplicate && column === 'ssn' ? 'duplicate' : ''}`}
+  return <td className={`${column === 'owner' ? 'owner' : ''} ${error ? 'invalid' : duplicate && ['owner','dob','dod'].includes(column) ? 'duplicate' : ''}`}
     title={error ?? (locked ? 'Unmask SSNs to edit this field' : 'Double-click or press Enter to edit')}
     onDoubleClick={edit} tabIndex={0} onKeyDown={event => { if (!editing && event.key === 'Enter') edit() }}>
     {editing ? <input autoFocus aria-label={`Edit ${labels[column]}`} value={draft} onChange={e => setDraft(e.target.value)}
@@ -79,6 +80,7 @@ export default function Workspace() {
   const [dragging, setDragging] = useState(false), [manual, setManual] = useState(false)
   const [manualValues, setManualValues] = useState<Record<Column,string>>(() => Object.fromEntries(columns.map(c => [c,''])) as Record<Column,string>)
   const input = useRef<HTMLInputElement>(null), search = useRef<HTMLInputElement>(null)
+  const tableScroll = useRef<HTMLDivElement>(null)
   const busyRef = useRef(false), commands = useRef({ open: () => {}, export: () => {} })
   const filtered = useMemo(() => filterRecords(records, filters).sort((a,b) =>
     (sort.column === 'age' ? Number(a.age) - Number(b.age) : a[sort.column].localeCompare(b[sort.column], undefined, { numeric: true })) * sort.direction
@@ -104,12 +106,27 @@ export default function Workspace() {
     return { city, rescode, sex, average: ages.length ? (ages.reduce((a,b) => a+b,0) / ages.length).toFixed(1) : '—' }
   }, [records])
   useEffect(() => { setPage(1) }, [filters, pageSize])
+  useEffect(() => { setPage(current => Math.min(current, pages)) }, [pages])
+  useEffect(() => { if (tableScroll.current) tableScroll.current.scrollTop = 0 }, [currentPage, pageSize, sort])
   async function log(action: string, detail: string) {
     const entry = { at: new Date().toISOString(), action, detail }
     setActivity(previous => [entry, ...previous].slice(0,200))
     try { await window.api?.logActivity(action, detail) } catch { setMessage({ text: 'Activity could not be saved to local history.', error: true }) }
   }
   async function refreshRecent() { if (window.api) setRecent(await window.api.recentFiles()) }
+  async function forgetHistory(file?: RecentFile) {
+    if (busyRef.current || !window.api) return
+    const prompt = file
+      ? `Remove ${file.name} from recent-file history? Your source file and loaded records will not be changed.`
+      : 'Clear all recent-file history (TXT and CSV)? Your source files, loaded records, and activity log will not be changed.'
+    if (!window.confirm(prompt)) return
+    busyRef.current = true; setBusy('Updating file history')
+    try {
+      setRecent(file ? await window.api.removeRecentFile(file.path) : await window.api.clearRecentFiles())
+      setMessage({ text: file ? `${file.name} removed from history. Source file unchanged.` : 'Recent-file history cleared. Source files unchanged.' })
+    } catch { setMessage({ text: 'File history could not be updated. Please try again.', error: true }) }
+    finally { busyRef.current = false; setBusy('') }
+  }
   useEffect(() => {
     if (window.api) Promise.all([window.api.recentFiles(), window.api.activity()]).then(([r,a]) => {
       setRecent(r); setActivity(a)
@@ -275,18 +292,23 @@ export default function Workspace() {
               <div className="export-columns" role="group" aria-label="Export columns">{columns.map(c => <label key={c}><input type="checkbox" checked={selected.includes(c)}
                 onChange={e => setSelected(previous => e.target.checked ? columns.filter(key => key === c || previous.includes(key)) : previous.filter(key => key !== c))}/>{labels[c]}</label>)}<span className="subtle">Source always included · {mask ? 'SSNs masked' : 'Full SSNs'}</span></div>
             </div>}
-            {!!groups.length && <div className="notice"><Icon name="alert"/>{groups.length} duplicate groups found. Merging keeps the first non-empty value per field.
+            {!!groups.length && <div className="notice"><Icon name="alert"/>{groups.length} duplicate groups found by Owner + DOB + DOD. Merging keeps the first non-empty value per field.
               <button onClick={() => { if (window.confirm('Merge duplicate groups? Conflicting fields keep the first imported value. This cannot be undone.')) { setRecords(mergeDuplicates(records)); void log('Duplicates merged', `${groups.length} groups merged`) } }}>Merge duplicates</button></div>}
-            <div className="table-scroll"><table aria-label="Vital records preview"><thead><tr><th>#</th>{columns.map(c => <th key={c}><button onClick={() => setSort({ column:c, direction: sort.column === c && sort.direction === 1 ? -1 : 1 })}>{labels[c]}{sort.column === c ? sort.direction === 1 ? ' ↑' : ' ↓' : ''}</button></th>)}<th>Source</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <div className="table-hint" id="table-help">Scroll horizontally for all columns and vertically for more rows. Double-click a cell to edit.</div>
+            <div className="table-scroll" ref={tableScroll} role="region" aria-label="Scrollable record data" aria-describedby="table-help" tabIndex={0}><table aria-label="Vital records preview"><thead><tr><th>#</th>{columns.map(c => <th key={c}><button onClick={() => setSort({ column:c, direction: sort.column === c && sort.direction === 1 ? -1 : 1 })}>{labels[c]}{sort.column === c ? sort.direction === 1 ? ' ↑' : ' ↓' : ''}</button></th>)}<th>Source</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>{visible.map((row,i) => <tr key={row.id}><td className="subtle">{(currentPage-1)*pageSize+i+1}</td>{columns.map(c => <EditableCell key={c} row={row} column={c} mask={mask} duplicate={duplicateIds.has(row.id)} onEdit={updateCell}/>)}
                 <td title={`${row.source} · line ${row.line}`}>{row.source}</td><td><button className="delete" aria-label={`Delete row ${i+1}`} onClick={() => {
                   if (window.confirm('Delete this row from the workspace? The original file will not change.')) { setRecords(previous => previous.filter(r => r.id !== row.id)); void log('Row deleted','One record removed') }
                 }}><Icon name="trash"/></button></td></tr>)}
                 {!visible.length && <tr><td colSpan={12}><div className="table-empty"><Icon name="file"/><strong>{records.length ? 'No matching records' : 'A clean start for your next report'}</strong>{records.length ? 'Try adjusting your search or filters.' : 'Import a file to review records here. Nothing leaves this device.'}</div></td></tr>}
               </tbody></table></div>
-            <div className="pagination"><span>{filtered.length ? (currentPage-1)*pageSize+1 : 0}–{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length} · Double-click a cell to edit</span>
+            <nav className="pagination" aria-label="Record pagination"><span aria-live="polite">{filtered.length ? (currentPage-1)*pageSize+1 : 0}–{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length} records</span>
               <div className="pages"><select aria-label="Rows per page" value={pageSize} onChange={e => setPageSize(+e.target.value)}>{[25,50,100].map(n => <option key={n} value={n}>{n} / page</option>)}</select>
-                <button aria-label="Previous page" disabled={currentPage <= 1} onClick={() => setPage(currentPage-1)}>‹</button>{currentPage} / {pages}<button aria-label="Next page" disabled={currentPage >= pages} onClick={() => setPage(currentPage+1)}>›</button></div></div>
+                <button aria-label="First page" disabled={currentPage <= 1} onClick={() => setPage(1)}>«</button>
+                <button aria-label="Previous page" disabled={currentPage <= 1} onClick={() => setPage(currentPage-1)}>‹</button>
+                <span aria-current="page">Page {currentPage} of {pages}</span>
+                <button aria-label="Next page" disabled={currentPage >= pages} onClick={() => setPage(currentPage+1)}>›</button>
+                <button aria-label="Last page" disabled={currentPage >= pages} onClick={() => setPage(pages)}>»</button></div></nav>
             {!!records.length && <div className="analytics" aria-label="Record breakdown">
               {Object.entries(stats.sex).map(([name,count]) => <span key={`sex${name}`}>Sex {name}: {count}</span>)}
               {Object.entries(stats.city).sort((a,b) => b[1]-a[1]).slice(0,4).map(([name,count]) => <span key={`city${name}`}>{name}: {count}</span>)}
@@ -300,12 +322,12 @@ export default function Workspace() {
             {!issues.length && <div className="table-empty">No validation issues.</div>}{issues.length > 500 && <p className="subtle">Showing the first 500 issues. Download the log for all {issues.length}.</p>}
           </div></section>}
         {tab === 'history' && <>
-          <section className="panel"><div className="panel-head"><h2>Recent files</h2><span className="subtle">Last 10 · stored on this device</span></div><div className="history">
-            <p className="subtle">Electron remembers opened and dropped files for one-click reload. Browser preview files must be imported again.</p>
-            {recent.map(file => <div className="history-row" key={file.path}><div><strong>{file.name}</strong><small>{formatTime(file.importedAt)}</small></div><button disabled={!!busy} onClick={async () => {
+          <section className="panel"><div className="panel-head"><h2>Recent files</h2><button disabled={!recent.length || !!busy} onClick={() => void forgetHistory()}><Icon name="trash"/>Clear all file history</button></div><div className="history">
+            <p className="subtle">Last 10 TXT/CSV files · stored on this device. Remove or clear history without deleting source files or loaded records. Browser preview files must be imported again.</p>
+            {recent.map(file => <div className="history-row" key={file.path}><div className="history-file"><strong title={file.name}>{file.name}</strong><small>{formatTime(file.importedAt)}</small></div><div className="history-actions"><button disabled={!!busy} onClick={async () => {
               try { const result = await window.api.reloadFile(file.path); if (result) await importFiles([result]) }
               catch { setMessage({ text: `Could not reload ${file.name}. It may have moved or been deleted.`, error: true }) }
-            }}>Reload</button></div>)}{!recent.length && <div className="table-empty">No recent files yet.</div>}</div></section>
+            }}>Reload</button><button disabled={!!busy} aria-label={`Remove ${file.name} from history`} onClick={() => void forgetHistory(file)}><Icon name="trash"/>Remove</button></div></div>)}{!recent.length && <div className="table-empty">No recent files yet.</div>}</div></section>
           <section className="panel"><div className="panel-head"><h2>Activity log</h2><span className="subtle">Latest 200 events · no record values</span></div><div className="history">{activity.map((item,i) =>
             <div className="history-row" key={i}><div><strong>{item.action}</strong><small>{item.detail}</small></div><small>{formatTime(item.at)}</small></div>)}{!activity.length && <div className="table-empty">Imports, edits, and exports will appear here.</div>}</div></section>
         </>}
@@ -318,7 +340,7 @@ export default function Workspace() {
           {profiles.map(p => <div className="notice" key={p.name}>{p.name} · {p.mode}<button aria-label={`Delete profile ${p.name}`} onClick={() => { setProfiles(previous => previous.filter(v => v.name !== p.name)); if (layout.name === p.name) setLayout(defaultLayout) }}>×</button></div>)}
         </div></section>}
       </main>
-      <footer className="statusbar"><span><span style={{color:'var(--accent)'}}>●</span> {busy ? 'Processing' : 'Ready'} · Your files stay on this device</span><span>Ctrl/⌘ O import · S export · F search</span></footer>
+      <footer className="statusbar"><div className="footer-status"><span><span style={{color:'var(--accent)'}}>●</span> {busy ? 'Processing' : 'Ready'} · Your files stay on this device</span><span>Ctrl/⌘ O import · S export · F search</span></div><CopyrightNotice/></footer>
     </div>
     {manual && <div className="modal-shade" onKeyDown={e => { if (e.key === 'Escape') setManual(false) }}><form className="modal" role="dialog" aria-modal="true" aria-labelledby="manual-title" onSubmit={e => {
       e.preventDefault()

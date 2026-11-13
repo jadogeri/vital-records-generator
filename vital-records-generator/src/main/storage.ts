@@ -23,3 +23,19 @@ export function updateStore(directory: string, update: (store: Store) => void): 
   pending = next.catch(() => {})
   return next
 }
+
+// Only forget metadata; never unlink, truncate, or otherwise modify a source file.
+export async function removeRecentFile(directory: string, path: unknown): Promise<RecentFile[]> {
+  if (typeof path !== 'string' || !path || path.length > 32768) throw new Error('Invalid history file.')
+  let recent: RecentFile[] = []
+  await updateStore(directory, store => {
+    store.recent = store.recent.filter(file => file.path !== path)
+    recent = store.recent
+  })
+  return recent
+}
+
+export async function clearRecentFiles(directory: string): Promise<RecentFile[]> {
+  await updateStore(directory, store => { store.recent = [] })
+  return []
+}

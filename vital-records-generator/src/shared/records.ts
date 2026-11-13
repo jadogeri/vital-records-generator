@@ -18,6 +18,8 @@ export type DesktopAPI = {
   openDroppedFiles(files: File[]): Promise<InputFile[]>
   recentFiles(): Promise<RecentFile[]>
   reloadFile(path: string): Promise<InputFile | null>
+  removeRecentFile(path: string): Promise<RecentFile[]>
+  clearRecentFiles(): Promise<RecentFile[]>
   saveFile(name: string, format: ExportFormat, bytes: number[]): Promise<boolean>
   activity(): Promise<Activity[]>
   logActivity(action: string, detail: string): Promise<void>
@@ -165,8 +167,10 @@ export function duplicateGroups(records: VitalRow[]): VitalRow[][] {
   }
   records.forEach((r, i) => {
     const keys: string[] = []
-    if (/^\d{3}-\d{2}-\d{4}$/.test(r.ssn)) keys.push(`s:${r.ssn}`)
-    if (r.owner && parseDate(r.dob)) keys.push(`n:${r.owner.toLowerCase()}:${r.dob}`)
+    const owner = titleCase(r.owner).toLocaleLowerCase()
+    const dob = parseDate(r.dob), dod = parseDate(r.dod)
+    // All three identity fields must be present and valid. SSN alone is not a match.
+    if (owner && dob && dod && dod >= dob) keys.push(JSON.stringify([owner, dob, dod]))
     keys.forEach(key => { const other = seen.get(key); if (other !== undefined) parent[root(i)] = root(other); else seen.set(key, i) })
   })
   const groups = new Map<number, VitalRow[]>()
