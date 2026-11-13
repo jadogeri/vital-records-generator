@@ -1,0 +1,17 @@
+    /* src/components/Button/Button.css */
+    .button-base {
+      padding: 10px 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f0f0f0;
+      cursor: pointer;
+    }
+
+    .button-base:hover:not(:disabled) {
+      background-color: #e0e0e0;
+    }
+
+    .button-base:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
