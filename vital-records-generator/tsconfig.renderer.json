@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["vite/client", "node"],
+    "noEmit": true
+  },
+  "include": ["src/renderer/src/App.tsx", "src/renderer/src/main.tsx", "src/renderer/src/workspace/**/*", "src/shared/**/*", "src/preload/index.d.ts", "tests/**/*"]
+}
